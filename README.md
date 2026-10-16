@@ -67,7 +67,7 @@ reconnecting** for a blocked operation.
    single batch in Job Tracker, or an extension results page for multiple batches.
 
 Candidate analysis completion is terminal even when Include/Skip decisions remain.
-The backend handles duplicates, unknown pending skills, and metadata conflicts;
+The backend handles existing-job identity, unknown pending skills, and metadata conflicts;
 review those in the app. Documents require a separate explicit app action.
 
 ## Website rules
@@ -110,6 +110,13 @@ Iframe/shadow-root traversal, CAPTCHA/login bypass, and universal relative-date
 parsing are not supported. Unknown posted dates stay null.
 
 ## Reliability and privacy
+
+- On current servers, an explicit new import of an existing job refreshes
+  Candidate Analysis using current career data. Unchanged text reuses compatible
+  Job Analysis; changed text creates a new posting version and runs both stages.
+  Existing application details/status are preserved. This can incur AI charges;
+  it never auto-generates documents. Click **Test connection** after upgrading
+  Job Tracker so the popup reads its advertised repeat-import behavior.
 
 - Batches persist immutable payloads, UUIDs, and retry keys **before** upload.
   Network retries reuse the same payload/key; no duplicate paid job is intentionally

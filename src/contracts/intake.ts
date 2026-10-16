@@ -178,6 +178,7 @@ export type BatchStatus = z.infer<typeof batchStatusSchema>;
 export const capabilitiesSchema = z.object({
   schemaVersion: z.literal(1),
   authenticated: z.literal(true),
+  repeatImportBehavior: z.enum(['refresh-analysis']).optional(),
   pollingIntervalSeconds: z.number().min(30).max(3600),
   limits: z.object({
     maxItems: z.number().int().min(1).max(20),

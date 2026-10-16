@@ -46,6 +46,12 @@ async function refresh() {
       ),
     );
     server.value = state.selectedServerId ?? previous;
+    const behavior =
+      state.capabilities[state.selectedServerId ?? '']?.repeatImportBehavior;
+    get('repeat-import-notice').textContent =
+      behavior === 'refresh-analysis'
+        ? 'Re-importing an existing job refreshes candidate analysis. Unchanged text reuses job analysis; edited application details are preserved. This may incur AI costs. Documents are not generated automatically.'
+        : 'Re-import behavior depends on the server version. Update Job Tracker to refresh existing jobs instead of skipping duplicates.';
     if (!state.servers.length)
       server.append(new Option('Configure a server in Settings', ''));
     const rule = get<HTMLSelectElement>('capture-rule');
@@ -86,16 +92,31 @@ function renderPreviews() {
   const root = get('previews');
   root.replaceChildren();
   for (const row of state.previews) {
+    const issue = row.error || row.warnings.join(' · ');
     const card = element(
       'details',
       '',
-      'rounded-box border border-base-300 bg-base-100 p-3',
+      `rounded-box border bg-base-100 p-3 ${row.error ? 'border-error' : issue ? 'border-warning' : 'border-base-300'}`,
     );
     const summary = element(
       'summary',
       row.item?.suggestedMetadata?.jobTitle || row.title,
       'font-medium cursor-pointer',
     );
+    if (issue) {
+      summary.append(
+        element(
+          'span',
+          row.error ? 'Needs attention' : 'Check warnings',
+          `badge badge-sm whitespace-nowrap ml-2 ${row.error ? 'badge-error' : 'badge-warning'}`,
+        ),
+        element(
+          'span',
+          issue,
+          `block text-sm font-normal break-words mt-2 ${row.error ? 'text-error' : 'text-base-content/80'}`,
+        ),
+      );
+    }
     card.append(summary);
     const url = element(
       'p',
@@ -132,9 +153,8 @@ function renderPreviews() {
       );
     }
     if (row.error)
-      card.append(element('p', row.error, 'text-error text-sm my-2'));
-    for (const warning of row.warnings)
-      card.append(element('p', warning, 'text-warning text-sm my-1'));
+      for (const warning of row.warnings)
+        card.append(element('p', warning, 'text-warning text-sm my-1'));
     const form = element('form', '', 'space-y-2');
     const selection = element('label', '', 'label gap-2');
     const checked = element('input', '', 'checkbox checkbox-sm');

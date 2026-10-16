@@ -27,6 +27,7 @@ const api = Bun.serve({
         return Response.json({
           schemaVersion: 1,
           authenticated: true,
+          repeatImportBehavior: 'refresh-analysis',
           pollingIntervalSeconds: 30,
           limits: {
             maxItems: 20,
@@ -270,6 +271,11 @@ try {
   popup.on('pageerror', (error) => errors.push(error.message));
   popup.on('dialog', (dialog) => dialog.accept());
   await popup.goto(`chrome-extension://${extensionId}/popup/index.html`);
+  await popup
+    .getByText('Re-importing an existing job refreshes candidate analysis.', {
+      exact: false,
+    })
+    .waitFor();
   await popup.locator('#group').selectOption(String(groupId));
   await popup
     .getByRole('button', { name: 'Capture group', exact: true })
@@ -370,6 +376,59 @@ try {
     chrome.runtime.sendMessage({ type: 'STATE' }).catch(() => ({ ok: false })),
   );
   assert.equal(untrusted.ok, false);
+  await worker.evaluate(async () => {
+    const key = 'jobIntake.v1';
+    const value = (await chrome.storage.local.get(key))[key] as {
+      previews: unknown[];
+    };
+    const preview = {
+      groupId: 1,
+      tabId: 1,
+      url: 'https://example.com/job',
+      createdAt: Date.now(),
+      checked: false,
+    };
+    value.previews = [
+      {
+        ...preview,
+        id: 'failed-preview',
+        title: 'Failed extraction',
+        error: 'Ambiguous selector (2 matches): .salary',
+        warnings: [],
+      },
+      {
+        ...preview,
+        id: 'warning-preview',
+        title: 'Review extracted values',
+        warnings: ['Unrelated JSON-LD ignored.'],
+      },
+    ];
+    await chrome.storage.local.set({ [key]: value });
+  });
+  await reopened.reload();
+  await reopened.locator('#previews summary .badge-error').waitFor();
+  const failedPreview = reopened.locator('#previews details').first();
+  assert.equal(await failedPreview.getAttribute('open'), null);
+  assert.equal(
+    await failedPreview.locator('summary .badge-error').innerText(),
+    'Needs attention',
+  );
+  assert.ok(
+    await failedPreview
+      .getByText('Ambiguous selector (2 matches): .salary', { exact: true })
+      .isVisible(),
+  );
+  const warningPreview = reopened.locator('#previews details').nth(1);
+  assert.equal(await warningPreview.getAttribute('open'), null);
+  assert.equal(
+    await warningPreview.locator('summary .badge-warning').innerText(),
+    'Check warnings',
+  );
+  assert.ok(
+    await warningPreview
+      .getByText('Unrelated JSON-LD ignored.', { exact: true })
+      .isVisible(),
+  );
   await mkdir('.local', { recursive: true });
   await reopened.screenshot({
     path: '.local/intaker-popup-smoke.png',

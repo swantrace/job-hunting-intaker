@@ -84,6 +84,7 @@ test('worker fetch omits website credentials, disallows redirects, handles all-r
       return Response.json({
         schemaVersion: 1,
         authenticated: true,
+        repeatImportBehavior: 'refresh-analysis',
         pollingIntervalSeconds: 30,
         limits: {
           maxItems: 20,
@@ -93,7 +94,9 @@ test('worker fetch omits website credentials, disallows redirects, handles all-r
         },
       });
     }) as typeof fetch;
-    await capabilities(server);
+    expect((await capabilities(server)).repeatImportBehavior).toBe(
+      'refresh-analysis',
+    );
     expect(captured?.credentials).toBe('omit');
     expect(captured?.redirect).toBe('error');
     expect(new Headers(captured?.headers).get('Authorization')).toBe(
