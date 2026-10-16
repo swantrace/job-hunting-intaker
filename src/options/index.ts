@@ -1,6 +1,10 @@
 import { hostPermission, normalizeOrigin } from '../api/client';
 import { defaultPolicy, fields } from '../contracts/intake';
 import {
+  extractionTimeoutMs,
+  withExtractionTimeout,
+} from '../extraction/timeout';
+import {
   canonicalUrl,
   ruleFileSchema,
   ruleSchema,
@@ -316,6 +320,10 @@ get('import-rules').addEventListener('change', async (event) => {
   }
 });
 get('test-extraction').addEventListener('click', async () => {
+  const button = get<HTMLButtonElement>('test-extraction');
+  if (button.disabled) return;
+  button.disabled = true;
+  get('extraction-result').textContent = '';
   try {
     const rule = readRule();
     const origins = rule.hostnames.map((host) =>
@@ -326,12 +334,16 @@ get('test-extraction').addEventListener('click', async () => {
     if (!(await chrome.permissions.request({ origins })))
       throw new Error('Website access was not granted.');
     get('extraction-result').textContent = 'Testing…';
-    const result = await send<{ item?: { sourceUrl: string }; error?: string }>(
-      {
-        type: 'TEST_EXTRACTION',
-        tabId: Number(get<HTMLSelectElement>('test-tab').value),
-        rule,
-      },
+    const result = await withExtractionTimeout(
+      () =>
+        send<{ item?: { sourceUrl: string }; error?: string }>({
+          type: 'TEST_EXTRACTION',
+          tabId: Number(get<HTMLSelectElement>('test-tab').value),
+          rule,
+        }),
+      () =>
+        'The extension worker did not respond. Reload the extension and reopen Settings.',
+      extractionTimeoutMs + 1000,
     );
     get('extraction-result').textContent = JSON.stringify(
       {
@@ -349,7 +361,11 @@ get('test-extraction').addEventListener('click', async () => {
       2,
     );
   } catch (error) {
+    get('extraction-result').textContent =
+      error instanceof Error ? error.message : 'Extraction failed.';
     report(error);
+  } finally {
+    button.disabled = false;
   }
 });
 get('refresh-tabs').addEventListener('click', () => {

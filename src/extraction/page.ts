@@ -11,7 +11,11 @@ export type Extraction = {
 /** Serialized by chrome.scripting: everything used at runtime lives inside this function. */
 export async function extractFromPage(rule: SiteRule): Promise<Extraction> {
   const warnings: string[] = [];
-  const diagnostics: Record<string, string> = {};
+  const diagnostics: Record<string, string> = {
+    stage: 'Starting page extraction',
+    url: location.href,
+    documentState: document.readyState,
+  };
   const startUrl = location.href;
   try {
     if (
@@ -59,6 +63,9 @@ export async function extractFromPage(rule: SiteRule): Promise<Extraction> {
       );
     };
     const startId = idFromPage();
+    diagnostics.stage = 'Waiting for root and job description';
+    diagnostics.rootSelectors = rule.rootSelectors.join('; ');
+    diagnostics.descriptionSelectors = rule.fields.rawText.selectors.join('; ');
     const deadline = Date.now() + 10000;
     let root = choose(rule.rootSelectors, document);
     const hasBody = () => {
@@ -84,9 +91,10 @@ export async function extractFromPage(rule: SiteRule): Promise<Extraction> {
     }
     if (!root)
       throw new Error(
-        'No job root found within 10 seconds. Load/expand the job, or edit the rule. Iframes/shadow roots are not traversed.',
+        `No job root found within 10 seconds. Tried: ${rule.rootSelectors.join('; ')}. Document state: ${document.readyState}. Load/expand the job, or edit the rule. Iframes/shadow roots are not traversed.`,
       );
     diagnostics.root = root.selector;
+    diagnostics.stage = 'Reading structured job data';
     const cleanHtml = (html: string) => {
       const template = document.createElement('template');
       template.innerHTML = html
@@ -239,6 +247,7 @@ export async function extractFromPage(rule: SiteRule): Promise<Extraction> {
       'postedDate',
       'salary',
     ] as const) {
+      diagnostics.stage = `Extracting field: ${name}`;
       const config = rule.fields[name];
       let css = '';
       for (const selector of config?.selectors ?? []) {
@@ -263,9 +272,10 @@ export async function extractFromPage(rule: SiteRule): Promise<Extraction> {
         fieldSources[name] = useJson ? 'json-ld' : 'css-selector';
     }
     const rawText = adopted.rawText;
+    diagnostics.stage = 'Validating job description';
     if (!rawText)
       throw new Error(
-        'No job description found. Edit the rule or paste the text manually.',
+        `No job description found under ${root.selector}. Tried: ${rule.fields.rawText.selectors.join('; ')}. No usable JSON-LD description. Edit the rule or paste the text manually.`,
       );
     if (
       rawText.length > 60000 ||
@@ -344,7 +354,7 @@ export async function extractFromPage(rule: SiteRule): Promise<Extraction> {
     };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Page extraction failed.',
+      error: `${error instanceof Error ? error.message : 'Page extraction failed.'} [Stage: ${diagnostics.stage}]`,
       warnings,
       diagnostics,
     };

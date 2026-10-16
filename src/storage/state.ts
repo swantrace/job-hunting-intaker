@@ -12,6 +12,7 @@ export type Preview = {
   id: string;
   groupId: number;
   tabId: number;
+  tabClosed?: boolean;
   url: string;
   title: string;
   createdAt: number;
@@ -64,7 +65,15 @@ export type State = {
 };
 export const initialState = (): State => ({
   version: 1,
-  servers: [],
+  servers: [
+    {
+      id: '8c79f970-eac3-47df-92af-369d7cd56619',
+      label: 'Production',
+      origin: 'https://job-hunting.fly.dev',
+      token: '',
+    },
+  ],
+  selectedServerId: '8c79f970-eac3-47df-92af-369d7cd56619',
   capabilities: {},
   rules: structuredClone(starterRules),
   previews: [],

@@ -7,6 +7,11 @@ const field = (selectors: string[]) => ({
   mode: 'text' as const,
   prefer: 'json-ld' as const,
 });
+const cssField = (selector: string) => ({
+  selectors: [selector],
+  mode: 'text' as const,
+  prefer: 'css-selector' as const,
+});
 export const starterRules: SiteRule[] = [
   ruleSchema.parse({
     id: 'linkedin-detail',
@@ -38,7 +43,7 @@ export const starterRules: SiteRule[] = [
   }),
   ruleSchema.parse({
     id: 'indeed-detail',
-    version: 1,
+    version: 2,
     label: 'Indeed detail (template)',
     enabled: true,
     hostnames: [
@@ -48,13 +53,20 @@ export const starterRules: SiteRule[] = [
       'indeed.com',
     ],
     pathPattern: '/viewjob*',
-    rootSelectors: ['#viewJobSSRRoot', 'main'],
+    rootSelectors: ['#root'],
     applicationSource: 'Indeed',
     fields: {
-      rawText: field(['#jobDescriptionText']),
-      jobTitle: field(['h1']),
-      companyName: field(['[data-testid="inlineHeader-companyName"]']),
-      location: field(['[data-testid="inlineHeader-companyLocation"]']),
+      rawText: cssField('.simple-job-description-html'),
+      jobTitle: cssField('[data-testid="vj-job-title"]'),
+      companyName: cssField(
+        '[data-testid="company-info-metadata"] a[href*="/cmp/"]',
+      ),
+      location: cssField(
+        '[data-testid="structured-job-summary"] > div:nth-of-type(3)',
+      ),
+      salary: cssField(
+        '[data-testid="structured-job-summary"] > div:nth-of-type(1)',
+      ),
     },
     providerId: { type: 'query', name: 'jk' },
     identityPolicy: {

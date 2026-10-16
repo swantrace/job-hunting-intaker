@@ -63,7 +63,7 @@ async function refresh() {
         .map((row) => new Option(row.label, row.id)),
     );
     rule.value = choice;
-    const signature = JSON.stringify(state.previews);
+    const signature = JSON.stringify([state.previews, !!state.capture]);
     if (!dirty && signature !== previewSignature) {
       renderPreviews();
       previewSignature = signature;
@@ -93,11 +93,54 @@ function renderPreviews() {
   root.replaceChildren();
   for (const row of state.previews) {
     const issue = row.error || row.warnings.join(' · ');
-    const card = element(
-      'details',
+    const entry = element(
+      'article',
       '',
       `rounded-box border bg-base-100 p-3 ${row.error ? 'border-error' : issue ? 'border-warning' : 'border-base-300'}`,
     );
+    entry.dataset.previewId = row.id;
+    const card = element('details');
+    const controls = element(
+      'div',
+      '',
+      'flex flex-wrap justify-end gap-2 mt-2',
+    );
+    const close = element(
+      'button',
+      row.tabClosed ? 'Tab closed' : 'Close tab',
+      'btn btn-sm',
+    );
+    close.type = 'button';
+    close.disabled = !!state.capture || !!row.tabClosed;
+    close.title =
+      'Close this browser tab. Captured text and the preview are kept.';
+    close.setAttribute(
+      'aria-label',
+      `${row.tabClosed ? 'Tab closed' : 'Close tab'}: ${row.item?.suggestedMetadata?.jobTitle || row.title}`,
+    );
+    let tabClosed = !!row.tabClosed;
+    close.addEventListener('click', async () => {
+      if (tabClosed || state.capture) return;
+      if (
+        !row.item &&
+        !confirm(
+          'This job has not been captured successfully. Closing its tab may prevent recapture. Close it anyway?',
+        )
+      )
+        return;
+      close.disabled = true;
+      try {
+        await send({ type: 'CLOSE_PREVIEW_TAB', id: row.id });
+        tabClosed = true;
+        close.textContent = 'Tab closed';
+        await refresh();
+      } catch (error) {
+        report(error);
+      } finally {
+        close.disabled = tabClosed || !!state.capture;
+      }
+    });
+    controls.append(close);
     const summary = element(
       'summary',
       row.item?.suggestedMetadata?.jobTitle || row.title,
@@ -138,19 +181,18 @@ function renderPreviews() {
         ...choices.map((rule) => new Option(rule.label, rule.id)),
       );
       selector.value = row.ruleId ?? choices[0].id;
-      card.append(
-        selector,
-        action('Recapture this job', async () => {
-          if (dirtyRows.has(row.id))
-            throw new Error('Save this preview’s changes before recapturing.');
-          await send({
-            type: 'RECAPTURE_PREVIEW',
-            id: row.id,
-            ruleId: selector.value,
-          });
-          await refresh();
-        }),
-      );
+      const recapture = action('Recapture this job', async () => {
+        if (dirtyRows.has(row.id))
+          throw new Error('Save this preview’s changes before recapturing.');
+        await send({
+          type: 'RECAPTURE_PREVIEW',
+          id: row.id,
+          ruleId: selector.value,
+        });
+        await refresh();
+      });
+      recapture.disabled = !!state.capture || !!row.tabClosed;
+      card.append(selector, recapture);
     }
     if (row.error)
       for (const warning of row.warnings)
@@ -251,7 +293,8 @@ function renderPreviews() {
       );
       card.append(diagnostics);
     }
-    root.append(card);
+    entry.append(card, controls);
+    root.append(entry);
   }
 }
 function renderOperations() {

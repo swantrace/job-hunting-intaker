@@ -396,6 +396,107 @@ try {
     chrome.runtime.sendMessage({ type: 'STATE' }).catch(() => ({ ok: false })),
   );
   assert.equal(untrusted.ok, false);
+  console.info('Smoke: reload and extract a genuinely discarded tab');
+  await reopened.bringToFront();
+  const discarded = await worker.evaluate(async (groupId) => {
+    const [target] = await chrome.tabs.query({ groupId });
+    if (target.id === undefined)
+      throw new Error('Missing synthetic group tab.');
+    const [original] = await chrome.tabs.query({
+      active: true,
+      windowId: target.windowId,
+    });
+    const result = await chrome.tabs.discard(target.id);
+    return {
+      tabId: result?.id ?? target.id,
+      windowId: target.windowId,
+      originalId: original.id,
+      discarded: result?.discarded,
+    };
+  }, groupId);
+  assert.equal(discarded.discarded, true);
+  const recovered = await reopened.evaluate(
+    ({ tabId, rule }) =>
+      chrome.runtime.sendMessage({ type: 'TEST_EXTRACTION', tabId, rule }),
+    { tabId: discarded.tabId, rule },
+  );
+  assert.equal(recovered.ok, true);
+  assert.ok(recovered.data.item, JSON.stringify(recovered.data));
+  assert.equal(
+    recovered.data.diagnostics.wakeAction,
+    'Activated discarded tab and waited for reload',
+  );
+  const restoredId = await worker.evaluate(
+    async (windowId) =>
+      (await chrome.tabs.query({ active: true, windowId }))[0]?.id,
+    discarded.windowId,
+  );
+  assert.equal(restoredId, discarded.originalId);
+  console.info(
+    'Smoke: skip a hung page after 15 seconds and capture the next job',
+  );
+  await worker.evaluate(() => {
+    const execute = chrome.scripting.executeScript.bind(chrome.scripting);
+    chrome.scripting.executeScript = (() => {
+      chrome.scripting.executeScript = execute;
+      return new Promise(() => {});
+    }) as typeof chrome.scripting.executeScript;
+  });
+  await reopened.locator('#group').selectOption(String(groupId));
+  await reopened
+    .getByRole('button', { name: 'Capture group', exact: true })
+    .click();
+  await reopened.waitForFunction(
+    () => {
+      const status =
+        document.querySelector('#capture-status')?.textContent ?? '';
+      return (
+        status.includes('1 captured') && status.includes('1 need attention')
+      );
+    },
+    {},
+    { timeout: 25000 },
+  );
+  assert.ok(
+    (await reopened.locator('#previews').innerText()).includes(
+      'Extraction timed out after 15 seconds',
+    ),
+  );
+  assert.ok(
+    (await reopened.locator('#previews').innerText()).includes(
+      'Stage: Probing page script execution',
+    ),
+  );
+  console.info('Smoke: close a preview tab while retaining captured text');
+  const capturedPreview = await worker.evaluate(async () => {
+    const state = (await chrome.storage.local.get('jobIntake.v1'))[
+      'jobIntake.v1'
+    ] as State;
+    const preview = state.previews.find((row) => row.item);
+    if (!preview?.item) throw new Error('Missing captured preview.');
+    return { id: preview.id, url: preview.url, rawText: preview.item.rawText };
+  });
+  const capturedCard = reopened.locator(
+    `[data-preview-id="${capturedPreview.id}"]`,
+  );
+  assert.equal(
+    await capturedCard.locator('details').getAttribute('open'),
+    null,
+  );
+  await capturedCard.getByRole('button', { name: /^Close tab:/ }).click();
+  await capturedCard.getByRole('button', { name: /^Tab closed:/ }).waitFor();
+  const closed = await worker.evaluate(async ({ id, url }) => {
+    const state = (await chrome.storage.local.get('jobIntake.v1'))[
+      'jobIntake.v1'
+    ] as State;
+    return {
+      preview: state.previews.find((row) => row.id === id),
+      open: (await chrome.tabs.query({})).some((tab) => tab.url === url),
+    };
+  }, capturedPreview);
+  assert.equal(closed.open, false);
+  assert.equal(closed.preview?.tabClosed, true);
+  assert.equal(closed.preview?.item?.rawText, capturedPreview.rawText);
   await worker.evaluate(async () => {
     const key = 'jobIntake.v1';
     const value = (await chrome.storage.local.get(key))[key] as {

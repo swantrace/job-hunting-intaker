@@ -31,7 +31,9 @@ The previous Coursera/video/Drive/offscreen exporter has been removed. Old ignor
 1. Migrate and start the Job Tracker backend. Complete Career Data onboarding.
 2. Configure its dedicated `JOB_INTAKE_API_TOKEN` (generate one with
    `openssl rand -hex 32`). This is **not** the site's Basic Auth password.
-3. Open extension **Settings**. Enter a profile label, origin, and intake token.
+3. Open extension **Settings**. Fresh installations include a **Production**
+   profile at **https://job-hunting.fly.dev**, without credentials or permissions.
+   Enter your intake token (or change the target to your own app).
    Select **Save & grant server access**, then **Test connection**.
 4. Add another profile for production if needed. Production requires HTTPS.
    HTTP is accepted only for explicit `localhost` or `127.0.0.1` development.
@@ -61,6 +63,10 @@ reconnecting** for a blocked operation.
    source, and description. Save changed previews before importing. Failed
    captures allow manual text paste while retaining the original page URL.
 5. To exclude a preview, uncheck **Include in this import** and save it.
+   **Close tab** is available on each preview without expanding it. It closes
+   only the matching browser page and keeps captured text and import selection.
+   Failed captures require confirmation; closing their page may prevent retry.
+   Closing is disabled during capture and the button reads **Tab closed** afterward.
 6. Select **Import N selected jobs** and confirm the destination. This can start
    **paid AI analysis on your server**. Close the popup whenever you like.
 7. Results show each sub-batch and application link. The notification opens a
@@ -74,6 +80,13 @@ review those in the app. Documents require a separate explicit app action.
 
 Settings provides **Add / Edit / Save / Cancel / Remove**, JSON import/export,
 and **Test extraction** against an explicitly chosen open page.
+
+The Indeed starter uses the configured `#root` layout and CSS selectors rather
+than preferring JSON-LD. Positional salary/location selectors depend on the page
+layout; verify them with Test extraction, especially when compensation is absent.
+Updated starter rules do not overwrite saved custom rules. Existing installations
+can import [the Indeed starter JSON](docs/fixtures/indeed-rule.json) and
+save/grant website access again. This replaces only the matching rule ID.
 
 Basic controls cover exact hostnames, wildcard pathname, root selector fallbacks,
 source name, and selectors for each captured field. Enter root fallbacks separated
@@ -106,6 +119,24 @@ LinkedIn/Indeed presets are **starting templates**, not verified universal site
 adapters. Save/test them against your actual page, and adapt selectors for search
 sidebars or changed layouts. Expand full job descriptions manually. Extraction
 uses a bounded wait and checks page URL/job identity before/after reading.
+Each page has a fifteen-second overall extraction timeout. A timed-out job is
+marked Needs attention and capture continues with the next page. Open the job
+and use Recapture this job to retry it; a timeout does not prove the page is invalid.
+Frozen and discarded tabs are automatically activated before extraction so
+Chrome can unfreeze or reload them. Capture waits for a discarded page to finish
+loading before running scripts. Capture may visibly switch tabs or close the popup; background capture
+continues. The previously active tab is restored after each extraction unless
+you have switched to another tab yourself. No window is brought to the front,
+no new tabs are opened, and loaded pages are not forcibly reloaded. Activating a
+discarded tab necessarily reloads its URL and may require network access or sign-in.
+Waking/loading a tab uses the same timeout budget; slow pages can still time out.
+If Chrome replaces a tab ID, group capture can recover it only through a unique
+exact URL match within the original group. Ambiguous matches are not guessed.
+Errors include the failed stage, rule, tab ID, URL, and available page-state
+diagnostics. A lightweight page probe distinguishes script execution failures
+from subsequent extraction failures. Missing-root/body errors list the selectors
+that were tried. Chrome does not expose the exact cause of an unreturned script;
+the diagnostic identifies the last completed stage instead of inventing a cause.
 Iframe/shadow-root traversal, CAPTCHA/login bypass, and universal relative-date
 parsing are not supported. Unknown posted dates stay null.
 

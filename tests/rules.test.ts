@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import indeedFixture from '../docs/fixtures/indeed-rule.json';
 import { defaultPolicy } from '../src/contracts/intake';
 import { starterRules } from '../src/rules/defaults';
 import {
@@ -8,7 +9,53 @@ import {
   ruleSchema,
 } from '../src/rules/schema';
 import { trustedSender } from '../src/security';
+import { initialState, readState } from '../src/storage/state';
 import { fakeStorage } from './support';
+
+test('fresh installs offer Production without embedding credentials or replacing saved profiles', async () => {
+  const state = initialState();
+  expect(state.servers[0]).toMatchObject({
+    label: 'Production',
+    origin: 'https://job-hunting.fly.dev',
+    token: '',
+  });
+  expect(state.selectedServerId).toBe(state.servers[0].id);
+  state.servers = [];
+  state.rules = [];
+  fakeStorage(state);
+  expect((await readState()).servers).toEqual([]);
+  expect((await readState()).rules).toEqual([]);
+});
+
+test('Indeed starter and import fixture use the configured CSS layout and job identity parameters', () => {
+  const rule = starterRules.find((row) => row.id === 'indeed-detail');
+  if (!rule) throw new Error('Indeed starter rule is missing.');
+  expect(ruleFileSchema.parse(indeedFixture).rules).toEqual([rule]);
+  expect(rule.rootSelectors).toEqual(['#root']);
+  expect(rule.fields.rawText.selectors).toEqual([
+    '.simple-job-description-html',
+  ]);
+  expect(rule.fields.jobTitle?.selectors).toEqual([
+    '[data-testid="vj-job-title"]',
+  ]);
+  expect(rule.fields.companyName?.selectors).toEqual([
+    '[data-testid="company-info-metadata"] a[href*="/cmp/"]',
+  ]);
+  expect(rule.fields.location?.selectors).toEqual([
+    '[data-testid="structured-job-summary"] > div:nth-of-type(3)',
+  ]);
+  expect(rule.fields.salary?.selectors).toEqual([
+    '[data-testid="structured-job-summary"] > div:nth-of-type(1)',
+  ]);
+  for (const value of Object.values(rule.fields))
+    expect(value.prefer).toBe('css-selector');
+  expect(
+    canonicalUrl(
+      'https://ca.indeed.com/viewjob?jk=123&utm_source=test',
+      rule.identityPolicy,
+    ),
+  ).toBe('https://ca.indeed.com/viewjob?jk=123');
+});
 
 test('rules are declarative and preserve identity parameters / fragment routing', () => {
   expect(() =>

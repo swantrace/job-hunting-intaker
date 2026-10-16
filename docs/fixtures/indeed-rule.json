@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "rules": [
+    {
+      "id": "indeed-detail",
+      "version": 2,
+      "label": "Indeed detail (template)",
+      "enabled": true,
+      "hostnames": [
+        "www.indeed.com",
+        "ca.indeed.com",
+        "www.indeed.ca",
+        "indeed.com"
+      ],
+      "pathPattern": "/viewjob*",
+      "rootSelectors": ["#root"],
+      "excludeSelectors": [],
+      "applicationSource": "Indeed",
+      "fields": {
+        "rawText": {
+          "selectors": [".simple-job-description-html"],
+          "mode": "text",
+          "prefer": "css-selector"
+        },
+        "jobTitle": {
+          "selectors": ["[data-testid=\"vj-job-title\"]"],
+          "mode": "text",
+          "prefer": "css-selector"
+        },
+        "companyName": {
+          "selectors": [
+            "[data-testid=\"company-info-metadata\"] a[href*=\"/cmp/\"]"
+          ],
+          "mode": "text",
+          "prefer": "css-selector"
+        },
+        "location": {
+          "selectors": [
+            "[data-testid=\"structured-job-summary\"] > div:nth-of-type(3)"
+          ],
+          "mode": "text",
+          "prefer": "css-selector"
+        },
+        "salary": {
+          "selectors": [
+            "[data-testid=\"structured-job-summary\"] > div:nth-of-type(1)"
+          ],
+          "mode": "text",
+          "prefer": "css-selector"
+        }
+      },
+      "providerId": {
+        "type": "query",
+        "name": "jk"
+      },
+      "identityPolicy": {
+        "version": 1,
+        "queryMode": "keep-listed",
+        "queryParams": ["jk", "vjk"],
+        "dropQueryParams": [],
+        "fragmentMode": "drop"
+      }
+    }
+  ]
+}

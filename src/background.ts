@@ -6,7 +6,7 @@ import {
   safeAppLink,
 } from './api/client';
 import { itemSchema } from './contracts/intake';
-import { extractFromPage } from './extraction/page';
+import { extractTab as extract } from './extraction/tab';
 import {
   advance,
   finished,
@@ -16,6 +16,7 @@ import {
 } from './queue/operations';
 import { matchRule, ruleFileSchema, ruleSchema } from './rules/schema';
 import { trustedSender } from './security';
+import { closePreviewTab } from './storage/close-preview-tab';
 import {
   change,
   cleanup,
@@ -69,6 +70,7 @@ const messages = z.discriminatedUnion('type', [
   }),
   z.strictObject({ type: z.literal('SUBMIT') }),
   z.strictObject({ type: z.literal('CLEAR_PREVIEWS') }),
+  z.strictObject({ type: z.literal('CLOSE_PREVIEW_TAB'), id: uuid }),
   z.strictObject({
     type: z.literal('RECAPTURE_PREVIEW'),
     id: uuid,
@@ -112,35 +114,6 @@ async function tabs() {
         : [],
   );
 }
-async function extract(
-  tabId: number,
-  rule: z.infer<typeof ruleSchema>,
-  expectedUrl?: string,
-) {
-  const tab = await chrome.tabs.get(tabId);
-  if (!tab.url || (expectedUrl && tab.url !== expectedUrl))
-    throw new Error('Tab navigated after selection. Capture the group again.');
-  matchRule([rule], tab.url, rule.id);
-  if (
-    !(await chrome.permissions.contains({ origins: [hostPermission(tab.url)] }))
-  )
-    throw new Error('Website permission is missing. Grant access in Settings.');
-  const result = await chrome.scripting.executeScript({
-    target: { tabId, frameIds: [0] },
-    world: 'ISOLATED',
-    func: extractFromPage,
-    args: [rule],
-  });
-  const value = result[0]?.result;
-  const after = await chrome.tabs.get(tabId);
-  if (
-    !value ||
-    after.url !== tab.url ||
-    (value.item && value.item.sourceUrl !== tab.url)
-  )
-    throw new Error('Page changed during capture. Capture again.');
-  return value;
-}
 async function captureNext() {
   if (capturing) return;
   capturing = true;
@@ -167,11 +140,13 @@ async function captureNext() {
       }
       let result: Preview;
       try {
-        const tab = await chrome.tabs.get(tabId);
-        if (tab.groupId !== capture.groupId)
-          throw new Error('Tab is no longer in the chosen group.');
         const rule = matchRule(state.rules, preview.url, capture.ruleId);
-        const extracted = await extract(tabId, rule, preview.url);
+        const extracted = await extract(
+          tabId,
+          rule,
+          preview.url,
+          capture.groupId,
+        );
         const item = extracted.item
           ? itemSchema.parse({ ...extracted.item, clientItemId: preview.id })
           : undefined;
@@ -187,6 +162,12 @@ async function captureNext() {
           ...preview,
           checked: false,
           error: error instanceof Error ? error.message : 'Capture failed.',
+          diagnostics: {
+            stage: 'Matching rule or validating extracted data',
+            tabId: String(tabId),
+            url: preview.url,
+            rule: capture.ruleId ?? 'automatic',
+          },
         };
       }
       await change((state) => {
@@ -412,6 +393,8 @@ async function handle(value: unknown) {
         state.capture = undefined;
         delete state.captureError;
       });
+    case 'CLOSE_PREVIEW_TAB':
+      return closePreviewTab(message.id);
     case 'RECAPTURE_PREVIEW':
       await change((state) => {
         if (state.capture)
