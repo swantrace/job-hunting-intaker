@@ -12,6 +12,13 @@ portable backup format version.
 
 ## Configure and start
 
+Upgrade note: run migrations through `0032_skill_decision_basis` before starting
+this version. It preserves decisions and adds decision provenance; no career
+facts or generated files are deleted. Candidate results from the earlier review
+policy become stale. Re-capture/import a group to refresh candidates in bulk;
+unchanged jobs reuse the compatible completed Job Analysis. Reconfirm historical
+decisions if their saved basis cannot be verified. No automatic document upload.
+
 1. Back up `jobs.db`, then run `bun run db:migrate`. Migration 0031 preserves
    existing applications and children, adds intake tracking, and allows unknown
    posted dates. Existing duplicates are retained rather than silently merged.
@@ -62,6 +69,8 @@ the advertised interval/`Retry-After` (normally 30 seconds), backing off after
 429/503. Never equate HTTP acceptance with analysis completion.
 
 Limits: 20 items, 4 MiB request, 60,000 characters and 128 KiB UTF-8 per text.
+Salary accepts up to 500 characters of free-form compensation text; application
+source remains limited to 150 characters. Over-limit fields are rejected, not truncated.
 Invalid envelope/duplicate item IDs fail the entire request; malformed individual
 jobs are persisted as rejected while valid jobs continue. All-rejected requests
 return 422 **with a queryable batch ID**. Other errors use
@@ -70,8 +79,16 @@ process; it is not a provider RPM/TPM quota.
 
 ## Identity and metadata
 
-- URL is mandatory. Original URL is preserved for navigation. Archived/rejected
-  jobs also participate in duplicate detection, even if new text differs.
+- URL is mandatory. Original URL is preserved for navigation. All statuses,
+  including Archived/Rejected, participate in identity matching. A new submission
+  for an existing job refreshes analysis, never creates another application or
+  changes its status. Metadata on an existing application is preserved.
+- If text is unchanged and a compatible completed Job Analysis exists, reuse it
+  and rerun Candidate Analysis with current career data. Changed text appends an
+  immutable posting version and runs both stages. In-flight identical runs are
+  shared; transport retries with the same submission/key never create new work.
+  This refresh may incur paid AI requests. Capabilities advertise
+  `repeatImportBehavior: "refresh-analysis"`; old servers may still skip duplicates.
 - LinkedIn view/currentJobId and Indeed jk/vjk IDs have website-specific
   identities. Generic provider IDs are verified against URL path/query values;
   a DOM-only ID cannot assert a trusted identity for an unrelated URL.
@@ -100,8 +117,17 @@ Batch status is `processing`, `completed`, or `completed-with-errors`.
 Notify once using the stable `terminalRevision`; later manual reruns do not
 re-notify the import. Open the returned `reviewUrl`/`applicationUrl` in the app.
 
-Review defaults to skills needing a decision. Proven skills are automatically
-used; remaining skills require Skip or Include with a reason. Include is scoped
+Review defaults to skills needing a decision. Automatic use requires an eligible
+personal Career Data skill plus directly related evidence supporting the actual
+requirement; catalog approval alone never establishes possession. Transferable
+personal evidence requires explicit Include/Skip (extra reason optional) and can
+only produce qualified resume Skills entries, not experience or cover-letter
+claims. Unknown skills require a reason to Include; React does not establish Vue.
+Include/Skip decisions and reasons are reused only within the same application
+and skill when normalized requirements and relevant evidence/classification match.
+Legacy decisions without a verifiable basis must be confirmed again. Historical
+documents remain available but a new Candidate run makes them out of date.
+Include is scoped
 to the application and never approves a catalog entry or edits career facts.
 Manage skill opens a separate tab. Refresh re-reads local state without AI;
 unsaved reasons prevent destructive refresh. Synonym merges move references
