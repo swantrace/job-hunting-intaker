@@ -1,31 +1,24 @@
 {
   "manifest_version": 3,
-  "name": "Coursera Text Exporter",
-  "description": "Collect captions and readings through the course API with resumable jobs, local export, and Google Drive sync.",
-  "version": "0.2.0",
+  "name": "Job Hunting Intaker",
+  "version": "1.0.0",
+  "description": "Capture job posts from a chosen tab group and follow Job Tracker analysis.",
   "minimum_chrome_version": "120",
-  "permissions": ["identity", "storage", "alarms", "downloads", "offscreen"],
-  "host_permissions": [
-    "https://www.coursera.org/*",
-    "https://www.googleapis.com/*",
-    "https://d3c33hcgiwev3.cloudfront.net/*"
+  "permissions": ["storage", "alarms", "tabs", "tabGroups", "scripting"],
+  "optional_permissions": ["notifications"],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
-  "background": {
-    "service_worker": "background/service-worker.js",
-    "type": "module"
-  },
+  "background": { "service_worker": "background.js", "type": "module" },
   "action": {
-    "default_popup": "popup/popup.html",
-    "default_title": "Coursera Text Exporter"
+    "default_popup": "popup/index.html",
+    "default_title": "Job Hunting Intaker"
   },
-  "content_scripts": [
-    {
-      "matches": ["https://www.coursera.org/*"],
-      "js": ["content/course-context.js"],
-      "run_at": "document_idle"
-    }
-  ],
+  "options_ui": { "page": "options/index.html", "open_in_tab": true },
+  "icons": { "128": "icon.png" },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'none'"
   }
 }

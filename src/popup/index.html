@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Job Hunting Intaker</title><link rel="stylesheet" href="../style.css"><script type="module" src="index.js"></script></head>
+  <body class="w-[580px] max-w-full bg-base-200 text-base-content">
+    <main class="space-y-5 p-5">
+      <header class="flex items-center justify-between gap-3"><div><h1 class="text-xl font-bold">Job Hunting Intaker</h1><p class="text-sm text-base-content/70">Collect once. Review in Job Tracker.</p></div><button type="button" id="settings" class="btn btn-sm">Settings</button></header>
+      <p id="feedback" class="alert alert-error text-sm" role="alert" aria-live="polite" hidden></p>
+      <section class="rounded-box border border-base-300 bg-base-100 p-4 space-y-3" aria-label="Capture jobs">
+        <fieldset class="fieldset"><legend class="fieldset-legend">Destination</legend><label for="server" class="label">Job Tracker server</label><select id="server" class="select w-full"></select></fieldset>
+        <fieldset class="fieldset"><legend class="fieldset-legend">Choose a tab group</legend><label for="group" class="label">Current browser window only</label><select id="group" class="select w-full"></select></fieldset>
+        <fieldset class="fieldset"><label for="capture-rule" class="label">Website rule</label><select id="capture-rule" class="select w-full"><option value="">Match automatically (recommended)</option></select></fieldset>
+        <div class="flex flex-wrap gap-2"><button type="button" id="capture" class="btn btn-primary">Capture group</button><button type="button" id="refresh" class="btn">Refresh groups</button><button type="button" id="clear-previews" class="btn btn-ghost">Clear captures</button></div>
+        <p class="text-xs text-base-content/70">Only this group is read. Expand full descriptions first. Close this popup at any time; submission and tracking continue in the background.</p>
+      </section>
+      <section aria-labelledby="preview-heading" class="space-y-3"><h2 id="preview-heading" class="font-semibold">Capture preview</h2><p id="capture-status" aria-live="polite" class="text-sm"></p><div id="previews" class="space-y-3"></div><button type="button" id="submit" class="btn btn-primary w-full" disabled>Import selected jobs</button></section>
+      <section aria-labelledby="operations-heading"><h2 id="operations-heading" class="font-semibold mb-3">Imports &amp; results</h2><div id="operations" class="space-y-3" aria-live="polite"></div></section>
+    </main>
+  </body>
+</html>

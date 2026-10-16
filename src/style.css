@@ -1,0 +1,18 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: light --default;
+}
+@source "./**/*.html";
+@source "./**/*.ts";
+
+@layer base {
+  body {
+    min-width: 360px;
+  }
+  [hidden] {
+    display: none;
+  }
+  textarea {
+    resize: vertical;
+  }
+}

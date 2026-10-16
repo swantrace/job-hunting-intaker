@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Job Intaker · Settings</title><link rel="stylesheet" href="../style.css"><script type="module" src="index.js"></script></head>
+  <body class="bg-base-200 text-base-content"><main class="max-w-5xl mx-auto p-5 sm:p-8 space-y-6">
+    <header><h1 class="text-2xl font-bold">Job Hunting Intaker · Settings</h1><p class="text-base-content/70 mt-2">Connect Job Tracker and configure exactly what each website exposes.</p></header>
+    <p id="feedback" class="alert alert-error" role="alert" aria-live="polite" hidden></p>
+    <section class="rounded-box border border-base-300 bg-base-100 p-5 space-y-4" aria-labelledby="connection-heading">
+      <h2 id="connection-heading" class="text-lg font-semibold">Server profiles</h2>
+      <label for="profile" class="label">Local / production target</label><select id="profile" class="select w-full"></select><button type="button" id="new-profile" class="btn btn-sm">New profile</button>
+      <form id="server-form" class="space-y-3"><input type="hidden" name="id" id="profile-id"><div id="server-fields" class="grid gap-3 sm:grid-cols-2"></div>
+        <fieldset class="fieldset"><label for="token" class="label">Intake API token (leave blank to keep saved token)</label><input id="token" name="token" type="password" class="input w-full" autocomplete="new-password" aria-describedby="token-help"><p id="token-help" class="text-xs text-base-content/60">Use JOB_INTAKE_API_TOKEN, not Basic Auth credentials or an OpenAI key. Stored locally, never synced or exported.</p></fieldset>
+        <div class="flex flex-wrap gap-2"><button type="submit" class="btn btn-primary">Save &amp; grant server access</button><button id="test-connection" type="button" class="btn">Test connection</button></div><p id="connection-status" role="status" class="text-sm"></p>
+      </form>
+      <label class="label gap-3"><input id="notifications" type="checkbox" class="checkbox">Notify when all batches finish</label>
+    </section>
+    <section class="rounded-box border border-base-300 bg-base-100 p-5 space-y-4" aria-labelledby="rules-heading">
+      <h2 id="rules-heading" class="text-lg font-semibold">Website extraction rules</h2><p class="text-sm text-base-content/70">LinkedIn/Indeed presets are editable templates. Use Test extraction on your actual layout. No scripts, automated clicks, CAPTCHA bypass, iframe or shadow-root traversal.</p>
+      <div id="rule-list" class="space-y-2"></div><div class="flex flex-wrap gap-2"><button type="button" id="add-rule" class="btn btn-sm">Add website rule</button><button type="button" id="export-rules" class="btn btn-sm">Export rules JSON</button><label class="btn btn-sm">Import rules JSON<input id="import-rules" type="file" accept="application/json" class="hidden"></label></div>
+      <form id="rule-form" class="space-y-4 border-t border-base-300 pt-4">
+        <div id="rule-basics" class="grid gap-3 sm:grid-cols-2"></div>
+        <label class="label gap-2"><input type="checkbox" id="rule-enabled" class="checkbox" checked>Enabled</label>
+        <div id="rule-fields" class="grid gap-4 sm:grid-cols-2"></div>
+        <details class="rounded-box border border-base-300 p-3"><summary class="cursor-pointer font-medium">Advanced configuration</summary><p class="text-sm my-2">Full declarative rule: read modes, JSON-LD/CSS priority, provider ID extractor, exclusion selectors, URL query/fragment identity. Basic fields above overwrite the corresponding values here on Save.</p><label for="rule-json" class="label">Rule JSON</label><textarea id="rule-json" class="textarea font-mono text-xs w-full min-h-80" spellcheck="false"></textarea></details>
+        <div class="flex flex-wrap gap-2"><button type="submit" class="btn btn-primary">Save rule &amp; grant website access</button><button id="cancel-rule" type="button" class="btn">Cancel</button></div>
+      </form>
+      <div class="space-y-2 border-t border-base-300 pt-4"><label for="test-tab" class="label">Open page to test (nothing is imported)</label><select id="test-tab" class="select w-full"></select><div class="flex gap-2"><button type="button" id="test-extraction" class="btn">Test extraction</button><button type="button" id="refresh-tabs" class="btn">Refresh open pages</button></div><pre id="extraction-result" class="whitespace-pre-wrap break-words rounded-box bg-base-200 p-3 text-xs max-h-[600px] overflow-y-auto" aria-live="polite"></pre></div>
+    </section>
+  </main></body>
+</html>
