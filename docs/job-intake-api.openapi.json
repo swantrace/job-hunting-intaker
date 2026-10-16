@@ -1,0 +1,609 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Job Tracker Extension Intake",
+    "version": "1.0.0",
+    "description": "Receives captured jobs and runs job/candidate analysis. Documents require a separate explicit user action."
+  },
+  "security": [
+    {
+      "intakeToken": []
+    }
+  ],
+  "paths": {
+    "/api/v1/job-intake/capabilities": {
+      "get": {
+        "operationId": "intakeCapabilities",
+        "responses": {
+          "200": {
+            "description": "Configured and authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "const": 1
+                    },
+                    "authenticated": {
+                      "const": true
+                    },
+                    "limits": {
+                      "type": "object"
+                    },
+                    "pollingIntervalSeconds": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Token is not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/job-intake/batches": {
+      "post": {
+        "operationId": "submitJobBatch",
+        "description": "Maximum request 4194304 bytes. Invalid items are rejected individually. Repeat exactly the same request/key after transport failures. Never fetches submitted URLs.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 120,
+              "pattern": "^[\\w-]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Identical idempotent replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchStatus"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Persisted for asynchronous processing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or content type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Submission key/client batch ID was already used with a different request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds byte limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid envelope (Error), or all items rejected (BatchStatus with batchId).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BatchStatus"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Admission limit; obey Retry-After and reuse the same key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable or not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/job-intake/batches/{id}": {
+      "get": {
+        "operationId": "getJobBatchStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidate completion is terminal, regardless of pending user decisions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown batch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "intakeToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Dedicated JOB_INTAKE_API_TOKEN, not website Basic Auth or an OpenAI key."
+      }
+    },
+    "schemas": {
+      "CaptureItem": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "clientItemId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "applicationSource": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rawText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60000
+          },
+          "suggestedMetadata": {
+            "type": "object",
+            "properties": {
+              "jobTitle": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "companyName": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "location": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "postedDate": {
+                "type": ["string", "null"]
+              },
+              "salary": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 150
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "capture": {
+            "type": "object",
+            "properties": {
+              "capturedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "ruleId": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "ruleVersion": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "fieldSources": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "enum": [
+                    "jobTitle",
+                    "companyName",
+                    "location",
+                    "postedDate",
+                    "salary"
+                  ]
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": ["json-ld", "css-selector", "page-url", "user"]
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "identity": {
+            "type": "object",
+            "properties": {
+              "providerJobId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "^[\\w.-]+$"
+              },
+              "policy": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "number",
+                    "const": 1
+                  },
+                  "queryMode": {
+                    "default": "keep-all",
+                    "type": "string",
+                    "enum": ["keep-all", "keep-listed"]
+                  },
+                  "queryParams": {
+                    "default": [],
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    }
+                  },
+                  "dropQueryParams": {
+                    "default": [],
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    }
+                  },
+                  "fragmentMode": {
+                    "default": "keep",
+                    "type": "string",
+                    "enum": ["keep", "drop"]
+                  }
+                },
+                "required": ["version"],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": ["clientItemId", "sourceUrl", "rawText"],
+        "additionalProperties": false
+      },
+      "BatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["schemaVersion", "clientBatchId", "items"],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "clientBatchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/CaptureItem"
+            }
+          }
+        }
+      },
+      "ItemStatus": {
+        "type": "object",
+        "required": [
+          "clientItemId",
+          "itemId",
+          "status",
+          "stage",
+          "decisionCount"
+        ],
+        "properties": {
+          "clientItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "queued",
+              "processing",
+              "completed",
+              "duplicate",
+              "failed",
+              "rejected"
+            ]
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "intake",
+              "job-analysis",
+              "skill-resolution",
+              "candidate-analysis",
+              "done"
+            ]
+          },
+          "jobAnalysisRunId": {
+            "type": ["integer", "null"]
+          },
+          "candidateAnalysisRunId": {
+            "type": ["integer", "null"]
+          },
+          "applicationUrl": {
+            "type": ["string", "null"]
+          },
+          "decisionCount": {
+            "type": "integer"
+          },
+          "metadataConflictCount": {
+            "type": "integer"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": ["object", "null"],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "fieldErrors": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "BatchStatus": {
+        "type": "object",
+        "required": [
+          "schemaVersion",
+          "batchId",
+          "status",
+          "revision",
+          "isTerminal",
+          "terminalRevision",
+          "counts",
+          "total",
+          "items"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "batchId": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["processing", "completed", "completed-with-errors"]
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "terminalRevision": {
+            "type": ["string", "null"],
+            "description": "Stable first terminal event ID. Later manual reruns do not emit another import completion."
+          },
+          "isTerminal": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "decisionCount": {
+            "type": "integer"
+          },
+          "statusUrl": {
+            "type": "string"
+          },
+          "reviewUrl": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemStatus"
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error", "requestId"],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "fieldErrors": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

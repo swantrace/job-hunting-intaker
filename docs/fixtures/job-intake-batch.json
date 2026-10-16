@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "clientBatchId": "15d86212-7d60-4526-81a0-df3909b1a291",
+  "items": [
+    {
+      "clientItemId": "28c08c06-177d-4bb2-88bd-036f55344218",
+      "sourceUrl": "https://jobs.example.com/view?jobId=123&utm_source=mail",
+      "applicationSource": "Example Jobs",
+      "rawText": "Frontend Developer\nBuild accessible TypeScript interfaces and maintain automated tests. Work remotely with a product team in Canada.",
+      "suggestedMetadata": {
+        "jobTitle": "Frontend Developer",
+        "companyName": "Example Company",
+        "location": "Canada · Remote",
+        "postedDate": null,
+        "salary": "$90,000–$110,000 CAD annually"
+      },
+      "capture": {
+        "capturedAt": "2026-10-16T10:00:00Z",
+        "ruleId": "example-detail",
+        "ruleVersion": "1",
+        "fieldSources": { "jobTitle": "json-ld", "companyName": "css-selector" }
+      },
+      "identity": {
+        "providerJobId": "123",
+        "policy": {
+          "version": 1,
+          "queryMode": "keep-listed",
+          "queryParams": ["jobId"],
+          "dropQueryParams": ["utm_source"],
+          "fragmentMode": "drop"
+        }
+      }
+    }
+  ]
+}
