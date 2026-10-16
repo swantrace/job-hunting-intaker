@@ -74,7 +74,7 @@ export const itemSchema = z.strictObject({
       companyName: text(200),
       location: text(200),
       postedDate: z.string().refine(isDate).nullable().optional(),
-      salary: text(150),
+      salary: text(500),
     })
     .optional(),
   capture: z

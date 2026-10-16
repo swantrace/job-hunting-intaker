@@ -171,7 +171,6 @@ function renderPreviews() {
       ['Job title', 'jobTitle', meta?.jobTitle ?? '', 'text'],
       ['Company', 'companyName', meta?.companyName ?? '', 'text'],
       ['Location', 'location', meta?.location ?? '', 'text'],
-      ['Salary', 'salary', meta?.salary ?? '', 'text'],
       ['Posted date (if known)', 'postedDate', meta?.postedDate ?? '', 'date'],
       [
         'Application source',
@@ -181,6 +180,21 @@ function renderPreviews() {
       ],
     ])
       form.append(inputField(label, name, value, type));
+    const salaryField = element('fieldset', '', 'fieldset');
+    const salaryLabel = element(
+      'label',
+      'Salary (up to 500 characters)',
+      'label',
+    );
+    salaryLabel.htmlFor = `salary-${row.id}`;
+    const salary = element('textarea', '', 'textarea w-full');
+    salary.id = salaryLabel.htmlFor;
+    salary.name = 'salary';
+    salary.value = meta?.salary ?? '';
+    salary.rows = 2;
+    salary.maxLength = 500;
+    salaryField.append(salaryLabel, salary);
+    form.append(salaryField);
     const caption = element(
       'label',
       'Job description (paste here if extraction failed)',

@@ -33,6 +33,9 @@
                     },
                     "pollingIntervalSeconds": {
                       "type": "integer"
+                    },
+                    "repeatImportBehavior": {
+                      "const": "refresh-analysis"
                     }
                   }
                 }
@@ -321,7 +324,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "maxLength": 150
+                    "maxLength": 500
                   },
                   {
                     "type": "null"

@@ -18,6 +18,19 @@ import { item, server, status } from './support';
 test('published backend fixture is accepted without importing backend business logic', () => {
   expect(itemSchema.safeParse(fixture.items[0]).success).toBe(true);
 });
+test('accepts 500-character salary text without truncation and rejects longer values', () => {
+  const salary = 'x'.repeat(500);
+  expect(
+    itemSchema.parse({ ...item(), suggestedMetadata: { salary } })
+      .suggestedMetadata?.salary,
+  ).toBe(salary);
+  expect(
+    itemSchema.safeParse({
+      ...item(),
+      suggestedMetadata: { salary: `${salary}x` },
+    }).success,
+  ).toBe(false);
+});
 test('rejects malformed URLs, dates, forged fields and Unicode byte overflow', () => {
   for (const value of [
     { ...item(), sourceUrl: 'javascript:alert(1)' },

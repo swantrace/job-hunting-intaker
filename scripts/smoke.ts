@@ -268,6 +268,7 @@ try {
     .getByText('Synthetic jobs', { exact: false })
     .waitFor();
   const popup = await context.newPage();
+  console.info('Smoke: capture grouped tabs');
   popup.on('pageerror', (error) => errors.push(error.message));
   popup.on('dialog', (dialog) => dialog.accept());
   await popup.goto(`chrome-extension://${extensionId}/popup/index.html`);
@@ -289,9 +290,26 @@ try {
     { timeout: 30000 },
   );
   assert.equal(await popup.locator('#previews details').count(), 2);
+  const firstPreview = popup.locator('#previews details').first();
+  console.info('Smoke: edit and save a 500-character salary');
+  await firstPreview.locator('summary').click();
+  const salary = 'Compensation includes salary, bonus, and benefits. '
+    .repeat(11)
+    .slice(0, 499)
+    .concat('.');
+  const salaryInput = firstPreview.locator('textarea[name="salary"]');
+  assert.equal(await salaryInput.getAttribute('maxlength'), '500');
+  await salaryInput.fill(salary);
+  await firstPreview
+    .getByRole('button', { name: 'Save preview', exact: true })
+    .click();
+  await popup
+    .getByRole('button', { name: 'Import 2 selected jobs', exact: true })
+    .waitFor();
   await popup
     .getByRole('button', { name: 'Import 2 selected jobs', exact: true })
     .click();
+  console.info('Smoke: wait for accepted batch tracking');
   await popup.waitForFunction(
     () =>
       document.querySelector('#operations')?.textContent?.includes('tracking'),
@@ -301,6 +319,7 @@ try {
   assert.equal(accepted.size, 1);
   const sent = [...accepted.values()][0].payload;
   assert.equal(sent.items.length, 2);
+  assert.equal(sent.items[0].suggestedMetadata?.salary, salary);
   assert.ok(
     sent.items.every((item) => !item.sourceUrl.includes('outside-group')),
   );
@@ -324,6 +343,7 @@ try {
   await cdp.send('Target.closeTarget', { targetId: target.targetId });
   complete = true;
   const reopened = await context.newPage();
+  console.info('Smoke: recover operation after worker restart');
   await reopened.goto(`chrome-extension://${extensionId}/popup/index.html`);
   worker =
     context

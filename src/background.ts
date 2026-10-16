@@ -63,7 +63,7 @@ const messages = z.discriminatedUnion('type', [
     jobTitle: z.string().max(200),
     companyName: z.string().max(200),
     location: z.string().max(200),
-    salary: z.string().max(150),
+    salary: z.string().max(500),
     postedDate: z.string().max(10),
     applicationSource: z.string().max(150),
   }),
